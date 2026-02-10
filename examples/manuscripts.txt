@@ -1,0 +1,3 @@
+# One URL or local path per line.
+# https://example.org/manuscript1.pdf
+# /path/to/manuscript/images/

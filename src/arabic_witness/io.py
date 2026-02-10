@@ -58,10 +58,28 @@ def convert_pdf_to_images(pdf_path: Path, out_dir: Path, first_n: int) -> list[P
     except Exception as exc:
         logger.warning("pdf2image not available or failed: %s", exc)
 
+    try:
+        import fitz  # type: ignore
+
+        paths: list[Path] = []
+        doc = fitz.open(str(pdf_path))
+        page_count = min(first_n, doc.page_count)
+        for idx in range(page_count):
+            page = doc.load_page(idx)
+            pix = page.get_pixmap(dpi=200)
+            img_path = out_dir / f"page_{idx + 1:04d}.png"
+            pix.save(str(img_path))
+            paths.append(img_path)
+        doc.close()
+        if paths:
+            return paths
+    except Exception as exc:
+        logger.warning("PyMuPDF not available or failed: %s", exc)
+
     pdftoppm = shutil.which("pdftoppm")
     if not pdftoppm:
         raise RuntimeError(
-            "PDF conversion requires pdf2image or pdftoppm to be installed."
+            "PDF conversion requires pdf2image, PyMuPDF, or pdftoppm to be installed."
         )
     prefix = out_dir / "page"
     cmd = [

@@ -7,6 +7,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Optional
@@ -49,8 +50,21 @@ class OpenAIOcr(OcrBackend):
             },
             method="POST",
         )
-        with urllib.request.urlopen(req) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+        try:
+            with urllib.request.urlopen(req) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            status, reason = e.code, getattr(e, "reason", str(e))
+            err_msg = f"OpenAI API error: HTTP {status} {reason}"
+            # #region agent log
+            try:
+                import time
+                _log = {"sessionId": "48f8ff", "location": "ocr.py:_request", "message": "HTTPError from OpenAI", "data": {"status": status, "reason": str(reason)[:200]}, "hypothesisId": "H1", "timestamp": int(time.time() * 1000)}
+                open("/Users/andrei/WEB3/Encoding/FInalProject/.cursor/debug-48f8ff.log", "a").write(json.dumps(_log) + "\n")
+            except Exception:
+                pass
+            # #endregion
+            raise RuntimeError(err_msg) from e
 
     @staticmethod
     def _extract_text(response: dict) -> str:

@@ -14,6 +14,16 @@ import sys
 
 REPO_ROOT = Path(__file__).resolve().parent
 SRC_PATH = REPO_ROOT / "src"
+
+
+def _secret(key: str) -> str | None:
+    """Read from Streamlit secrets (for Cloud). Returns None if missing."""
+    try:
+        return st.secrets.get(key) if hasattr(st, "secrets") and st.secrets else None
+    except Exception:
+        return None
+
+
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
@@ -201,7 +211,7 @@ def main() -> None:
                 out_dir=tmp_path / "out",
                 prefer_ocr=prefer_ocr,
                 openai_model=openai_model,
-                openai_api_key=openai_key or os.getenv("OPENAI_API_KEY"),
+                openai_api_key=openai_key or _secret("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY"),
                 translate=translate,
                 translation_model=translation_model,
                 script_note=script_note,

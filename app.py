@@ -103,7 +103,7 @@ def _run_pipeline(pdf_paths: list[Path], config: PipelineConfig) -> Path:
         ocr_pages = []
         for i, (page, image_path) in enumerate(preprocessed):
             if i > 0 and isinstance(ocr_backend, OpenAIOcr):
-                time.sleep(2)
+                time.sleep(20)
             ocr_input = image_path if config.ocr_use_preprocessed else page.image_path
             try:
                 ocr_page = ocr_backend.ocr_page(ocr_input, witness_id, page.page_index)

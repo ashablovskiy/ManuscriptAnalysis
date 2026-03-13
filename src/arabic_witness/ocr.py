@@ -13,8 +13,8 @@ import urllib.request
 from pathlib import Path
 from typing import Optional
 
-_MAX_429_RETRIES = 6
-_429_BASE_DELAY_SEC = 3
+_MAX_429_RETRIES = 8
+_429_BASE_DELAY_SEC = 5
 
 from .models import OcrLine, OcrPage
 

@@ -5,6 +5,7 @@ import json
 import os
 import shutil
 import tempfile
+import time
 import zipfile
 from pathlib import Path
 
@@ -100,7 +101,9 @@ def _run_pipeline(pdf_paths: list[Path], config: PipelineConfig) -> Path:
             preprocessed.append((page, preprocessed_path))
 
         ocr_pages = []
-        for page, image_path in preprocessed:
+        for i, (page, image_path) in enumerate(preprocessed):
+            if i > 0 and isinstance(ocr_backend, OpenAIOcr):
+                time.sleep(2)
             ocr_input = image_path if config.ocr_use_preprocessed else page.image_path
             try:
                 ocr_page = ocr_backend.ocr_page(ocr_input, witness_id, page.page_index)

@@ -7,10 +7,14 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Optional
+
+_MAX_429_RETRIES = 6
+_429_BASE_DELAY_SEC = 3
 
 from .models import OcrLine, OcrPage
 
@@ -50,21 +54,39 @@ class OpenAIOcr(OcrBackend):
             },
             method="POST",
         )
-        try:
-            with urllib.request.urlopen(req) as resp:
-                return json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            status, reason = e.code, getattr(e, "reason", str(e))
-            err_msg = f"OpenAI API error: HTTP {status} {reason}"
-            # #region agent log
+        last_exc = None
+        for attempt in range(_MAX_429_RETRIES):
             try:
-                import time
-                _log = {"sessionId": "48f8ff", "location": "ocr.py:_request", "message": "HTTPError from OpenAI", "data": {"status": status, "reason": str(reason)[:200]}, "hypothesisId": "H1", "timestamp": int(time.time() * 1000)}
-                open("/Users/andrei/WEB3/Encoding/FInalProject/.cursor/debug-48f8ff.log", "a").write(json.dumps(_log) + "\n")
-            except Exception:
-                pass
-            # #endregion
-            raise RuntimeError(err_msg) from e
+                with urllib.request.urlopen(req) as resp:
+                    return json.loads(resp.read().decode("utf-8"))
+            except urllib.error.HTTPError as e:
+                last_exc = e
+                if e.code == 429 and attempt < _MAX_429_RETRIES - 1:
+                    delay = min(
+                        _429_BASE_DELAY_SEC ** (attempt + 1),
+                        60,
+                    )
+                    retry_after = e.headers.get("Retry-After")
+                    if retry_after is not None:
+                        try:
+                            delay = max(delay, int(retry_after))
+                        except ValueError:
+                            pass
+                    logger.warning(
+                        "OpenAI rate limit (429); retrying in %ds (attempt %d/%d)",
+                        delay,
+                        attempt + 1,
+                        _MAX_429_RETRIES,
+                    )
+                    time.sleep(delay)
+                else:
+                    status, reason = e.code, getattr(e, "reason", str(e))
+                    raise RuntimeError(
+                        f"OpenAI API error: HTTP {status} {reason}"
+                    ) from e
+        raise RuntimeError(
+            f"OpenAI API error: HTTP 429 Too Many Requests (retried {_MAX_429_RETRIES} times)"
+        ) from last_exc
 
     @staticmethod
     def _extract_text(response: dict) -> str:
